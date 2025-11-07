@@ -1,0 +1,12 @@
+# Claude 자동 승인 프로그램 - 고급 버전 의존성
+
+# 필수 의존성
+pynput>=1.7.6
+psutil>=5.9.0
+
+# Windows 전용 (선택적)
+pygetwindow>=0.0.9; platform_system == "Windows"
+win10toast>=0.9; platform_system == "Windows"
+
+# 추가 유틸리티 (선택적)
+python-dotenv>=1.0.0  # 환경 변수 관리
