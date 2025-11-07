@@ -71,6 +71,10 @@ test = [
   "pytest-asyncio>=0.24.0",
   "pytest-benchmark>=4.0.0"
 ]
+tray = [
+  "pystray>=0.19.0",
+  "pillow>=10.0.0"
+]
 
 
 [project.urls]

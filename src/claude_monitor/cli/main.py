@@ -93,7 +93,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         args = settings.to_namespace()
 
-        _run_monitoring(args)
+        # Check for tray mode
+        if hasattr(args, 'tray') and args.tray:
+            _run_tray_mode(args)
+        else:
+            _run_monitoring(args)
 
         return 0
 
@@ -428,6 +432,67 @@ def _run_table_view(
     except Exception as e:
         logger.error(f"Error in table view: {e}", exc_info=True)
         print_themed(f"Error displaying {view_mode} view: {e}", style="error")
+
+
+def _run_tray_mode(args: argparse.Namespace) -> None:
+    """Run system tray mode.
+
+    Args:
+        args: Command-line arguments namespace
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Check if tray dependencies are available
+        from claude_monitor.ui.system_tray import SystemTrayManager, check_tray_support
+    except ImportError:
+        print_themed(
+            "System tray dependencies not installed.\n"
+            "Install with: pip install 'claude-monitor[tray]'",
+            style="error"
+        )
+        return
+
+    if not check_tray_support():
+        print_themed(
+            "System tray is not supported on this platform or dependencies are missing.\n"
+            "Install with: pip install 'claude-monitor[tray]'",
+            style="error"
+        )
+        return
+
+    try:
+        # Discover Claude data paths
+        data_paths: List[Path] = discover_claude_data_paths()
+        if not data_paths:
+            print_themed("No Claude data directory found", style="error")
+            return
+
+        data_path: Path = data_paths[0]
+        logger.info(f"Using data path: {data_path}")
+
+        # Create orchestrator
+        orchestrator = MonitoringOrchestrator(
+            update_interval=getattr(args, "refresh_rate", 10),
+            data_path=str(data_path),
+        )
+        orchestrator.set_args(args)
+
+        # Create and run tray manager
+        print_themed("Starting system tray mode...", style="info")
+        logger.info("Starting system tray mode")
+
+        tray_manager = SystemTrayManager(orchestrator)
+        tray_manager.run()  # Blocking call
+
+    except KeyboardInterrupt:
+        logger.info("System tray mode interrupted by user")
+        print_themed("\nSystem tray stopped by user", style="info")
+
+    except Exception as e:
+        logger.error(f"Error in tray mode: {e}", exc_info=True)
+        print_themed(f"Error running system tray: {e}", style="error")
+        raise
 
 
 if __name__ == "__main__":
