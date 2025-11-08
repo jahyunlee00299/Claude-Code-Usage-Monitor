@@ -99,6 +99,14 @@ class MonitoringOrchestrator:
         """
         self.session_monitor.register_callback(callback)
 
+    def get_current_data(self) -> Optional[Dict[str, Any]]:
+        """Get the current monitoring data.
+
+        Returns:
+            Current monitoring data or None if not available
+        """
+        return self._last_valid_data
+
     def force_refresh(self) -> Optional[Dict[str, Any]]:
         """Force immediate data refresh.
 

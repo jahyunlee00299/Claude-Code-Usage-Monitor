@@ -186,6 +186,7 @@ class SystemTrayManager:
             monitoring_data: Current monitoring data from orchestrator
         """
         try:
+            import datetime
             data = monitoring_data.get("data", {})
             blocks = data.get("blocks", [])
             active_blocks = [b for b in blocks if b.get("isActive")]
@@ -193,28 +194,55 @@ class SystemTrayManager:
             if active_blocks and self.icon:
                 block = active_blocks[0]
                 tokens = block.get("totalTokens", 0)
-                cost = block.get("totalCost", 0.0)
                 token_limit = monitoring_data.get("token_limit", 0)
 
-                # Calculate usage percentage
-                usage_pct = 0
-                if token_limit > 0:
-                    usage_pct = (tokens / token_limit) * 100
+                # Calculate remaining budget
+                remaining_tokens = max(0, token_limit - tokens) if token_limit > 0 else 0
+                remaining_pct = (remaining_tokens / token_limit * 100) if token_limit > 0 else 0
+
+                # Get session times
+                created_at = block.get("createdAt", "")
+                expires_at = block.get("expiresAt", "")
+
+                # Calculate time remaining
+                time_remaining = "N/A"
+                if expires_at:
+                    try:
+                        expires_time = datetime.datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        delta = expires_time - now
+
+                        if delta.total_seconds() > 0:
+                            hours = int(delta.total_seconds() // 3600)
+                            minutes = int((delta.total_seconds() % 3600) // 60)
+                            time_remaining = f"{hours}h {minutes}m"
+                        else:
+                            time_remaining = "Expired"
+                    except:
+                        pass
+
+                # Format created time
+                created_str = "N/A"
+                if created_at:
+                    try:
+                        created_time = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        created_str = created_time.strftime("%H:%M")
+                    except:
+                        pass
 
                 tooltip = (
-                    f"Claude Monitor | "
-                    f"Tokens: {tokens:,} | "
-                    f"${cost:.2f} | "
-                    f"{usage_pct:.0f}%"
+                    f"세션 시작: {created_str} | "
+                    f"남은 시간: {time_remaining} | "
+                    f"남은 예산: {remaining_pct:.0f}%"
                 )
 
                 self.icon.title = tooltip
 
                 # Check for high usage and send warning
-                self._check_usage_threshold(tokens, token_limit, cost)
+                self._check_usage_threshold(tokens, token_limit, 0)
 
             elif self.icon:
-                self.icon.title = "Claude Monitor | No active session"
+                self.icon.title = "No active session"
 
         except Exception as e:
             logger.error(f"Error updating tooltip: {e}", exc_info=True)
