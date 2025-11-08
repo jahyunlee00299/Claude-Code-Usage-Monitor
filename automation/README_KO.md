@@ -37,6 +37,7 @@ start_approver.bat
 - ✅ 모든 플랫폼 지원
 - ✅ 간단하고 빠름
 - ✅ 최소 의존성
+- ✅ 고정된 응답 ("2", "yes", "y")
 
 ### 2. 고급 버전 (`auto_approver_advanced.py`)
 - ✅ Windows 창 자동 감지 및 포커스
@@ -44,9 +45,19 @@ start_approver.bat
 - ✅ 상세한 통계 및 로깅
 - ✅ 더 정확한 입력
 
-### 3. 테스트 버전 (`test_auto_approver.py`)
+### 3. 🧠 스마트 버전 (`smart_auto_approver.py`) ⭐ **신규!**
+- ✅ **프롬프트 자동 분석**
+- ✅ **상황에 맞는 응답 선택**
+- ✅ Git/CMD/PyCharm 특화 패턴
+- ✅ OCR 화면 읽기 (선택적)
+- ✅ Windows 접근성 API 지원
+
+**더 자세한 정보는 [SMART_GUIDE_KO.md](SMART_GUIDE_KO.md)를 참고하세요!**
+
+### 4. 테스트 버전 (`test_auto_approver.py`, `test_smart_approver.py`)
 - ✅ 실제 키 입력 없이 시뮬레이션
 - ✅ 안전한 기능 테스트
+- ✅ 패턴 매칭 검증
 - ✅ 데모 및 학습용
 
 ## ✨ 기능 소개

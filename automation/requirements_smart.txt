@@ -1,0 +1,26 @@
+# Claude 스마트 자동 승인 프로그램 - 의존성
+
+# 필수 의존성
+pynput>=1.7.6
+psutil>=5.9.0
+
+# Windows 창 관리
+pygetwindow>=0.0.9; platform_system == "Windows"
+pyautogui>=0.9.53; platform_system == "Windows"
+
+# 고급 Windows 제어 (선택적이지만 권장)
+pywinauto>=0.6.8; platform_system == "Windows"
+
+# OCR 기능 (선택적 - 화면 텍스트 읽기)
+# 주의: Tesseract OCR 엔진 별도 설치 필요
+# Windows: https://github.com/UB-Mannheim/tesseract/wiki
+# Linux: sudo apt-get install tesseract-ocr
+# Mac: brew install tesseract
+pytesseract>=0.3.10
+Pillow>=9.0.0
+
+# 클립보드 지원 (선택적)
+pyperclip>=1.8.2
+
+# 알림 (선택적)
+win10toast>=0.9; platform_system == "Windows"
