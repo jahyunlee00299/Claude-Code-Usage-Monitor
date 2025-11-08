@@ -48,6 +48,7 @@ class SystemTrayManager:
         self._stop_event = threading.Event()
         self._last_notification_time = 0
         self._notification_cooldown = 300  # 5 minutes between notifications
+        self.is_monitoring = False  # Track monitoring status
 
     def create_menu(self):
         """Create system tray context menu.
@@ -70,8 +71,8 @@ class SystemTrayManager:
             item(
                 "Monitoring",
                 pystray.Menu(
-                    item("Start", self.start_monitoring, enabled=lambda _: not self.orchestrator.is_running()),
-                    item("Stop", self.stop_monitoring, enabled=lambda _: self.orchestrator.is_running()),
+                    item("Start", self.start_monitoring, enabled=lambda _: not self.is_monitoring),
+                    item("Stop", self.stop_monitoring, enabled=lambda _: self.is_monitoring),
                 ),
             ),
             pystray.Menu.SEPARATOR,
@@ -138,8 +139,12 @@ class SystemTrayManager:
             icon: pystray icon instance (unused)
             item: menu item instance (unused)
         """
-        if not self.orchestrator.is_running():
-            self.orchestrator.start()
+        if not self.is_monitoring:
+            try:
+                self.orchestrator.start()
+                self.is_monitoring = True
+            except Exception as e:
+                logger.debug(f"Start monitoring: {e}")
             if self.icon:
                 self.icon.notify("Monitoring started", "Claude Monitor")
             logger.info("Monitoring started via tray menu")
@@ -151,8 +156,12 @@ class SystemTrayManager:
             icon: pystray icon instance (unused)
             item: menu item instance (unused)
         """
-        if self.orchestrator.is_running():
-            self.orchestrator.stop()
+        if self.is_monitoring:
+            try:
+                self.orchestrator.stop()
+                self.is_monitoring = False
+            except Exception as e:
+                logger.debug(f"Stop monitoring: {e}")
             if self.icon:
                 self.icon.notify("Monitoring stopped", "Claude Monitor")
             logger.info("Monitoring stopped via tray menu")
@@ -287,8 +296,10 @@ class SystemTrayManager:
             self.orchestrator.register_update_callback(self.update_tooltip)
 
             # Start monitoring
-            if not self.orchestrator.is_running():
+            try:
                 self.orchestrator.start()
+            except Exception as e:
+                logger.debug(f"Orchestrator start: {e}")
 
             logger.info("System tray mode started")
 
