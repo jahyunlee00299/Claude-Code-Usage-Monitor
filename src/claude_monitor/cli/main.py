@@ -71,12 +71,45 @@ def discover_claude_data_paths(custom_paths: Optional[List[str]] = None) -> List
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Main entry point with direct pydantic-settings integration."""
+    import sys
+
+    # Get the real argv
     if argv is None:
         argv = sys.argv[1:]
+
+    # Make a copy for manipulation
+    original_argv = argv.copy()
 
     if "--version" in argv or "-v" in argv:
         print(f"claude-monitor {__version__}")
         return 0
+
+    # Handle help to show tray option
+    if "--help" in argv or "-h" in argv:
+        # Let pydantic handle the main help, but add tray option info
+        import argparse
+        parser = argparse.ArgumentParser(
+            prog="claude-monitor",
+            description="claude-monitor - Real-time token usage monitoring for Claude AI",
+            add_help=False
+        )
+        parser.add_argument("--tray", action="store_true",
+                          help="Run in system tray mode (Windows taskbar notification area)")
+
+        # Get the original help from pydantic
+        try:
+            Settings.load_with_last_used(["--help"])
+        except SystemExit:
+            # Add tray option to the help output
+            print("\nAdditional options:")
+            print("  --tray                Run in system tray mode (Windows taskbar notification area)")
+            sys.exit(0)
+
+    # Check for tray mode directly in argv before pydantic processing
+    tray_mode = "--tray" in original_argv
+    if tray_mode:
+        # Remove --tray from argv so pydantic doesn't complain
+        argv = [arg for arg in argv if arg != "--tray"]
 
     try:
         settings = Settings.load_with_last_used(argv)
@@ -94,7 +127,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         args = settings.to_namespace()
 
         # Check for tray mode
-        if hasattr(args, 'tray') and args.tray:
+        if tray_mode:
             _run_tray_mode(args)
         else:
             _run_monitoring(args)
