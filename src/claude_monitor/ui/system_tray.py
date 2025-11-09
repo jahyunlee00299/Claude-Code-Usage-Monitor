@@ -1,6 +1,7 @@
 """System tray manager for Windows taskbar integration."""
 
 import logging
+import subprocess
 import sys
 import threading
 from typing import Any, Dict, List, Optional
@@ -179,6 +180,39 @@ class SystemTrayManager:
         if self.icon:
             self.icon.stop()
 
+    def on_double_click(self, icon=None, item=None):
+        """Handle double-click on tray icon.
+
+        Opens a new CMD window and runs claude-monitor.
+
+        Args:
+            icon: pystray icon instance (unused)
+            item: menu item instance (unused)
+        """
+        try:
+            logger.info("Tray icon double-clicked, launching monitor in CMD")
+
+            # Launch claude-monitor in a new CMD window
+            # /k keeps the window open after command execution
+            if sys.platform == "win32":
+                subprocess.Popen(
+                    ['cmd', '/k', 'claude-monitor'],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
+            else:
+                # For non-Windows platforms, use default terminal
+                subprocess.Popen(['claude-monitor'])
+
+            logger.info("Monitor launched in new CMD window")
+
+        except Exception as e:
+            logger.error(f"Error launching monitor in CMD: {e}", exc_info=True)
+            if self.icon:
+                self.icon.notify(
+                    f"Failed to launch monitor: {e}",
+                    "Claude Monitor Error"
+                )
+
     def update_tooltip(self, monitoring_data: Dict[str, Any]):
         """Update tooltip with current usage data.
 
@@ -303,10 +337,16 @@ class SystemTrayManager:
             # Create icon image
             image = create_icon_image()
 
-            # Create tray icon
+            # Create tray icon with double-click handler
             self.icon = pystray.Icon(
-                "claude_monitor", image, "Claude Code Usage Monitor", self.create_menu()
+                "claude_monitor",
+                image,
+                "Claude Code Usage Monitor",
+                self.create_menu()
             )
+
+            # Set double-click action
+            self.icon.default_action = self.on_double_click
 
             # Register monitoring callbacks
             self.orchestrator.register_update_callback(self.update_tooltip)
