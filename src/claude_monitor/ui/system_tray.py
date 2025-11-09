@@ -334,15 +334,25 @@ class SystemTrayManager:
             print(f"[TOOLTIP DEBUG] tokens_runout: '{tokens_runout}', type: {type(tokens_runout)}")
 
             # Build tooltip with emphasis on depletion time
-            if tokens_runout and tokens_runout != "N/A" and tokens_runout != "Exceeded":
-                tooltip = (
-                    f"💰 남은 예산: {remaining_pct:.0f}% | "
-                    f"⏰ 토큰 소진: {tokens_runout} | "
-                    f"🔄 리셋: {reset_time}"
-                )
-                print(f"[TOOLTIP] With depletion: {tooltip}")
-                logger.info(f"Tooltip with depletion time: {tooltip}")
+            if tokens_runout and tokens_runout != "N/A":
+                if tokens_runout == "Exceeded":
+                    # Already exceeded the limit
+                    tooltip = (
+                        f"⚠️ 한도 초과! | "
+                        f"💰 초과: {abs(remaining_tokens):,} 토큰 | "
+                        f"🔄 리셋: {reset_time}"
+                    )
+                else:
+                    # Normal case - show predicted depletion time
+                    tooltip = (
+                        f"💰 남은 예산: {remaining_pct:.0f}% | "
+                        f"⏰ 토큰 소진: {tokens_runout} | "
+                        f"🔄 리셋: {reset_time}"
+                    )
+                print(f"[TOOLTIP] With time info: {tooltip}")
+                logger.info(f"Tooltip with time info: {tooltip}")
             else:
+                # No prediction available
                 tooltip = (
                     f"💰 남은 예산: {remaining_pct:.0f}% | "
                     f"세션: {session_start} | "
