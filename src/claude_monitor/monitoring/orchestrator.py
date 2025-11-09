@@ -257,9 +257,9 @@ class MonitoringOrchestrator:
             Dictionary with time information and usage stats
         """
         time_info = {
-            "start_time_str": "",
-            "reset_time_str": "",
-            "predicted_end_str": "",
+            "start_time_str": "N/A",
+            "reset_time_str": "N/A",
+            "predicted_end_str": "N/A",
             "tokens_used": 0,
             "reset_time_utc": None,  # datetime object for comparison
             "predicted_end_utc": None,  # datetime object for comparison
@@ -318,10 +318,12 @@ class MonitoringOrchestrator:
                     logger.debug(f"Error formatting reset time: {e}")
 
             # Calculate predicted end time based on burn rate
+            print(f"[ORCH DEBUG] Calculating predicted end - token_limit: {token_limit}, tokens_used: {tokens_used}")
             if token_limit > 0 and tokens_used > 0:
                 try:
                     # Get duration in minutes
                     duration_minutes = active_block.get("durationMinutes", 0)
+                    print(f"[ORCH DEBUG] duration_minutes: {duration_minutes}")
 
                     if duration_minutes > 0:
                         # Calculate burn rate (tokens per minute)
@@ -347,13 +349,17 @@ class MonitoringOrchestrator:
                             time_info["predicted_end_str"] = format_display_time(
                                 predicted_end_local, time_format, include_seconds=False
                             )
+                            print(f"[ORCH DEBUG] Predicted end time calculated: {time_info['predicted_end_str']}")
                         elif remaining_tokens <= 0:
                             # Already exceeded the limit
                             time_info["predicted_end_str"] = "Exceeded"
+                            print(f"[ORCH DEBUG] Tokens exceeded")
                         else:
                             time_info["predicted_end_str"] = "N/A"
+                            print(f"[ORCH DEBUG] Burn rate is 0, predicted end = N/A")
                     else:
                         time_info["predicted_end_str"] = "N/A"
+                        print(f"[ORCH DEBUG] Duration minutes is 0, predicted end = N/A")
                 except Exception as e:
                     logger.debug(f"Error calculating predicted end time: {e}")
                     time_info["predicted_end_str"] = "N/A"
