@@ -318,10 +318,6 @@ class SystemTrayManager:
             reset_time_str = monitoring_data.get("reset_time_str", "")
             predicted_end_str = monitoring_data.get("predicted_end_str", "")
 
-            # Debug logging with print for visibility
-            print(f"[TOOLTIP DEBUG] start: {start_time_str}, reset: {reset_time_str}, predicted: {predicted_end_str}")
-            logger.debug(f"Tooltip update - start: {start_time_str}, reset: {reset_time_str}, predicted: {predicted_end_str}")
-
             # 세션 시작 시간
             session_start = start_time_str if start_time_str else "N/A"
 
@@ -330,8 +326,6 @@ class SystemTrayManager:
 
             # 토큰 소진 예상 시간
             tokens_runout = predicted_end_str if predicted_end_str else "N/A"
-
-            print(f"[TOOLTIP DEBUG] tokens_runout: '{tokens_runout}', type: {type(tokens_runout)}")
 
             # Build tooltip with emphasis on depletion time
             if tokens_runout and tokens_runout != "N/A":
@@ -349,8 +343,6 @@ class SystemTrayManager:
                         f"⏰ 토큰 소진: {tokens_runout} | "
                         f"🔄 리셋: {reset_time}"
                     )
-                print(f"[TOOLTIP] With time info: {tooltip}")
-                logger.info(f"Tooltip with time info: {tooltip}")
             else:
                 # No prediction available
                 tooltip = (
@@ -358,8 +350,6 @@ class SystemTrayManager:
                     f"세션: {session_start} | "
                     f"🔄 리셋: {reset_time}"
                 )
-                print(f"[TOOLTIP] Without depletion (runout={tokens_runout}): {tooltip}")
-                logger.info(f"Tooltip without depletion time (tokens_runout={tokens_runout}): {tooltip}")
 
             if self.icon:
                 self.icon.title = tooltip
