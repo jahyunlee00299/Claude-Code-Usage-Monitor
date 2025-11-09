@@ -66,6 +66,8 @@ class SystemTrayManager:
             )
 
         return pystray.Menu(
+            # Hidden default action for left-click/double-click
+            item("Open Monitor", self.on_double_click, default=True, visible=False),
             item("Show Status", self.show_status),
             item("Settings", self.open_settings),
             pystray.Menu.SEPARATOR,
@@ -190,20 +192,31 @@ class SystemTrayManager:
             item: menu item instance (unused)
         """
         try:
-            logger.info("Tray icon double-clicked, launching monitor in CMD")
+            logger.info("=== TRAY ICON CLICKED - Launching monitor in CMD ===")
+            print("DEBUG: Tray icon clicked!")  # Debug output
 
             # Launch claude-monitor in a new CMD window
             # /k keeps the window open after command execution
             if sys.platform == "win32":
-                subprocess.Popen(
-                    ['cmd', '/k', 'claude-monitor'],
+                cmd = ['cmd', '/k', 'claude-monitor']
+                logger.info(f"Executing command: {' '.join(cmd)}")
+
+                process = subprocess.Popen(
+                    cmd,
                     creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
+                logger.info(f"Monitor launched in new CMD window (PID: {process.pid})")
             else:
                 # For non-Windows platforms, use default terminal
                 subprocess.Popen(['claude-monitor'])
+                logger.info("Monitor launched in default terminal")
 
-            logger.info("Monitor launched in new CMD window")
+            # Show confirmation notification
+            if self.icon:
+                self.icon.notify(
+                    "Opening Claude Monitor in new window...",
+                    "Claude Monitor"
+                )
 
         except Exception as e:
             logger.error(f"Error launching monitor in CMD: {e}", exc_info=True)
@@ -337,16 +350,13 @@ class SystemTrayManager:
             # Create icon image
             image = create_icon_image()
 
-            # Create tray icon with double-click handler
+            # Create tray icon with double-click handler (via menu default item)
             self.icon = pystray.Icon(
                 "claude_monitor",
                 image,
                 "Claude Code Usage Monitor",
                 self.create_menu()
             )
-
-            # Set double-click action
-            self.icon.default_action = self.on_double_click
 
             # Register monitoring callbacks
             self.orchestrator.register_update_callback(self.update_tooltip)
