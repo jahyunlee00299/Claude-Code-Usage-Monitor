@@ -261,6 +261,8 @@ class MonitoringOrchestrator:
             "reset_time_str": "",
             "predicted_end_str": "",
             "tokens_used": 0,
+            "reset_time_utc": None,  # datetime object for comparison
+            "predicted_end_utc": None,  # datetime object for comparison
         }
 
         try:
@@ -311,6 +313,7 @@ class MonitoringOrchestrator:
                     time_info["reset_time_str"] = format_display_time(
                         reset_time_local, time_format, include_seconds=False
                     )
+                    time_info["reset_time_utc"] = reset_time_utc  # Store UTC datetime for comparison
                 except Exception as e:
                     logger.debug(f"Error formatting reset time: {e}")
 
@@ -335,6 +338,9 @@ class MonitoringOrchestrator:
                             current_time = datetime.now(timezone.utc)
                             from datetime import timedelta
                             predicted_end_time = current_time + timedelta(minutes=minutes_remaining)
+
+                            # Store UTC datetime for comparison
+                            time_info["predicted_end_utc"] = predicted_end_time
 
                             # Format predicted end time
                             predicted_end_local = tz_handler.convert_to_timezone(predicted_end_time, timezone_str)

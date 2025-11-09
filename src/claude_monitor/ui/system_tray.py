@@ -346,21 +346,42 @@ class SystemTrayManager:
                 if active_blocks:
                     cost = active_blocks[0].get("totalCost", 0.0)
 
+            # Get time objects for early depletion check
+            predicted_end_utc = monitoring_data.get("predicted_end_utc")
+            reset_time_utc = monitoring_data.get("reset_time_utc")
+
             # Check for high usage and send warning
-            self._check_usage_threshold(tokens_used, token_limit, cost)
+            self._check_usage_threshold(
+                tokens_used, token_limit, cost,
+                predicted_end_utc, reset_time_utc,
+                predicted_end_str, reset_time_str
+            )
 
         except Exception as e:
             logger.error(f"Error updating tooltip: {e}", exc_info=True)
             if self.icon:
                 self.icon.title = "Error updating status"
 
-    def _check_usage_threshold(self, tokens: int, token_limit: int, cost: float):
+    def _check_usage_threshold(
+        self,
+        tokens: int,
+        token_limit: int,
+        cost: float,
+        predicted_end_utc=None,
+        reset_time_utc=None,
+        predicted_end_str: str = "",
+        reset_time_str: str = ""
+    ):
         """Check if usage exceeds threshold and send notification.
 
         Args:
             tokens: Current token usage
             token_limit: Token limit
             cost: Current cost
+            predicted_end_utc: Predicted token depletion time (UTC datetime)
+            reset_time_utc: Reset time (UTC datetime)
+            predicted_end_str: Formatted predicted end time string
+            reset_time_str: Formatted reset time string
         """
         import time
 
@@ -373,6 +394,26 @@ class SystemTrayManager:
         current_time = time.time()
         if current_time - self._last_notification_time < self._notification_cooldown:
             return
+
+        # Check if tokens will be depleted before reset (high priority warning)
+        if predicted_end_utc and reset_time_utc:
+            if predicted_end_utc < reset_time_utc:
+                # Tokens will run out before reset!
+                if self.icon:
+                    self.icon.notify(
+                        f"⚠️ 토큰이 리셋 전에 소진될 예정입니다!\n"
+                        f"소진 예정: {predicted_end_str}\n"
+                        f"리셋 시간: {reset_time_str}\n"
+                        f"현재 사용량: {tokens:,}/{token_limit:,} ({usage_pct:.0f}%)\n"
+                        f"비용: ${cost:.2f}",
+                        "⚠️ Claude Monitor - 조기 소진 경고",
+                    )
+                    self._last_notification_time = current_time
+                    logger.warning(
+                        f"Early depletion warning: tokens will run out at {predicted_end_str}, "
+                        f"before reset at {reset_time_str}"
+                    )
+                return  # Don't send additional percentage warnings
 
         # Send warning at 80% and 90% usage
         if usage_pct >= 90:
