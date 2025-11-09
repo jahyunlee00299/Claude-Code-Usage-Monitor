@@ -331,38 +331,32 @@ class MonitoringOrchestrator:
                         # Calculate remaining tokens
                         remaining_tokens = token_limit - tokens_used
 
-                        if remaining_tokens > 0 and burn_rate > 0:
-                            # Calculate minutes until tokens run out (within limit)
-                            minutes_remaining = remaining_tokens / burn_rate
-
-                            # Calculate predicted end time
+                        # Always show actual time
+                        if burn_rate > 0:
                             current_time = datetime.now(timezone.utc)
                             from datetime import timedelta
-                            predicted_end_time = current_time + timedelta(minutes=minutes_remaining)
 
-                            # Store UTC datetime for comparison
-                            time_info["predicted_end_utc"] = predicted_end_time
-
-                            # Format predicted end time
-                            predicted_end_local = tz_handler.convert_to_timezone(predicted_end_time, timezone_str)
-                            time_info["predicted_end_str"] = format_display_time(
-                                predicted_end_local, time_format, include_seconds=False
-                            )
-                            # Also store as depletion time for consistency
-                            time_info["predicted_depletion_time_str"] = time_info["predicted_end_str"]
-                        elif remaining_tokens <= 0:
-                            # Already exceeded the limit, but still calculate when complete depletion will occur
-                            # Assume we have some buffer or continued usage
-                            time_info["predicted_end_str"] = "Exceeded"
-
-                            # For exceeded case, we still want to show when it might be completely used up
-                            # This helps users understand the burn rate even when over limit
-                            # Calculate based on total available capacity minus current usage
-                            # (This is a rough estimate for informational purposes)
-                            time_info["predicted_depletion_time_str"] = "Exceeded"
+                            if remaining_tokens > 0:
+                                # Within limit - calculate when limit will be reached
+                                minutes_remaining = remaining_tokens / burn_rate
+                                predicted_end_time = current_time + timedelta(minutes=minutes_remaining)
+                                # Store UTC datetime for comparison
+                                time_info["predicted_end_utc"] = predicted_end_time
+                                # Format predicted end time
+                                predicted_end_local = tz_handler.convert_to_timezone(predicted_end_time, timezone_str)
+                                time_info["predicted_end_str"] = format_display_time(
+                                    predicted_end_local, time_format, include_seconds=False
+                                )
+                            else:
+                                # Already exceeded - show reset time (when tokens will be replenished)
+                                if time_info["reset_time_utc"]:
+                                    time_info["predicted_end_str"] = time_info["reset_time_str"]
+                                    time_info["predicted_end_utc"] = time_info["reset_time_utc"]
+                                else:
+                                    time_info["predicted_end_str"] = "N/A"
+                                    time_info["predicted_end_utc"] = None
                         else:
                             time_info["predicted_end_str"] = "N/A"
-                            time_info["predicted_depletion_time_str"] = "N/A"
                     else:
                         time_info["predicted_end_str"] = "N/A"
                 except Exception as e:
