@@ -3,12 +3,14 @@
 import logging
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from claude_monitor.core.plans import DEFAULT_TOKEN_LIMIT, get_token_limit
 from claude_monitor.error_handling import report_error
 from claude_monitor.monitoring.data_manager import DataManager
 from claude_monitor.monitoring.session_monitor import SessionMonitor
+from claude_monitor.utils.time_utils import TimezoneHandler, format_display_time
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,14 @@ class MonitoringOrchestrator:
         """
         self.session_monitor.register_callback(callback)
 
+    def get_current_data(self) -> Optional[Dict[str, Any]]:
+        """Get the current monitoring data.
+
+        Returns:
+            Current monitoring data or None if not available
+        """
+        return self._last_valid_data
+
     def force_refresh(self) -> Optional[Dict[str, Any]]:
         """Force immediate data refresh.
 
@@ -169,6 +179,9 @@ class MonitoringOrchestrator:
             # Calculate token limit
             token_limit: int = self._calculate_token_limit(data)
 
+            # Extract time information from active block
+            time_info = self._extract_time_info(data, token_limit)
+
             # Prepare monitoring data
             monitoring_data: Dict[str, Any] = {
                 "data": data,
@@ -176,6 +189,7 @@ class MonitoringOrchestrator:
                 "args": self._args,
                 "session_id": self.session_monitor.current_session_id,
                 "session_count": self.session_monitor.session_count,
+                **time_info,  # Include time information
             }
 
             # Store last valid data
@@ -231,3 +245,125 @@ class MonitoringOrchestrator:
         except Exception as e:
             logger.exception(f"Error calculating token limit: {e}")
             return DEFAULT_TOKEN_LIMIT
+
+    def _extract_time_info(self, data: Dict[str, Any], token_limit: int) -> Dict[str, Any]:
+        """Extract time information from active block.
+
+        Args:
+            data: Monitoring data
+            token_limit: Current token limit
+
+        Returns:
+            Dictionary with time information and usage stats
+        """
+        time_info = {
+            "start_time_str": "N/A",
+            "reset_time_str": "N/A",
+            "predicted_end_str": "N/A",
+            "predicted_depletion_time_str": "N/A",  # Always calculate when tokens will run out
+            "tokens_used": 0,
+            "reset_time_utc": None,  # datetime object for comparison
+            "predicted_end_utc": None,  # datetime object for comparison
+        }
+
+        try:
+            # Find active block
+            active_block = None
+            for block in data.get("blocks", []):
+                if isinstance(block, dict) and block.get("isActive", False):
+                    active_block = block
+                    break
+
+            if not active_block:
+                return time_info
+
+            # Get timezone from args
+            tz_handler = TimezoneHandler(default_tz="Europe/Warsaw")
+            timezone_str = getattr(self._args, "timezone", "Europe/Warsaw") if self._args else "Europe/Warsaw"
+
+            if not tz_handler.validate_timezone(timezone_str):
+                timezone_str = "Europe/Warsaw"
+
+            # Get time format preference
+            time_format = "12h" if self._args and getattr(self._args, "time_12h", False) else "24h"
+
+            # Extract tokens used
+            tokens_used = active_block.get("totalTokens", 0)
+            time_info["tokens_used"] = tokens_used
+
+            # Extract and format start time
+            start_time_str = active_block.get("startTime")
+            if start_time_str:
+                try:
+                    start_time = tz_handler.parse_timestamp(start_time_str)
+                    start_time_utc = tz_handler.ensure_utc(start_time)
+                    start_time_local = tz_handler.convert_to_timezone(start_time_utc, timezone_str)
+                    time_info["start_time_str"] = format_display_time(
+                        start_time_local, time_format, include_seconds=False
+                    )
+                except Exception as e:
+                    logger.debug(f"Error formatting start time: {e}")
+
+            # Extract and format reset time (endTime)
+            reset_time_str = active_block.get("endTime")
+            if reset_time_str:
+                try:
+                    reset_time = tz_handler.parse_timestamp(reset_time_str)
+                    reset_time_utc = tz_handler.ensure_utc(reset_time)
+                    reset_time_local = tz_handler.convert_to_timezone(reset_time_utc, timezone_str)
+                    time_info["reset_time_str"] = format_display_time(
+                        reset_time_local, time_format, include_seconds=False
+                    )
+                    time_info["reset_time_utc"] = reset_time_utc  # Store UTC datetime for comparison
+                except Exception as e:
+                    logger.debug(f"Error formatting reset time: {e}")
+
+            # Calculate predicted end time based on burn rate
+            if token_limit > 0 and tokens_used > 0:
+                try:
+                    # Get duration in minutes
+                    duration_minutes = active_block.get("durationMinutes", 0)
+
+                    if duration_minutes > 0:
+                        # Calculate burn rate (tokens per minute)
+                        burn_rate = tokens_used / duration_minutes
+
+                        # Calculate remaining tokens
+                        remaining_tokens = token_limit - tokens_used
+
+                        # Always show actual time
+                        if burn_rate > 0:
+                            current_time = datetime.now(timezone.utc)
+                            from datetime import timedelta
+
+                            if remaining_tokens > 0:
+                                # Within limit - calculate when limit will be reached
+                                minutes_remaining = remaining_tokens / burn_rate
+                                predicted_end_time = current_time + timedelta(minutes=minutes_remaining)
+                                # Store UTC datetime for comparison
+                                time_info["predicted_end_utc"] = predicted_end_time
+                                # Format predicted end time
+                                predicted_end_local = tz_handler.convert_to_timezone(predicted_end_time, timezone_str)
+                                time_info["predicted_end_str"] = format_display_time(
+                                    predicted_end_local, time_format, include_seconds=False
+                                )
+                            else:
+                                # Already exceeded - show reset time (when tokens will be replenished)
+                                if time_info["reset_time_utc"]:
+                                    time_info["predicted_end_str"] = time_info["reset_time_str"]
+                                    time_info["predicted_end_utc"] = time_info["reset_time_utc"]
+                                else:
+                                    time_info["predicted_end_str"] = "N/A"
+                                    time_info["predicted_end_utc"] = None
+                        else:
+                            time_info["predicted_end_str"] = "N/A"
+                    else:
+                        time_info["predicted_end_str"] = "N/A"
+                except Exception as e:
+                    logger.debug(f"Error calculating predicted end time: {e}")
+                    time_info["predicted_end_str"] = "N/A"
+
+        except Exception as e:
+            logger.error(f"Error extracting time info: {e}", exc_info=True)
+
+        return time_info

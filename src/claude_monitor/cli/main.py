@@ -71,12 +71,45 @@ def discover_claude_data_paths(custom_paths: Optional[List[str]] = None) -> List
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Main entry point with direct pydantic-settings integration."""
+    import sys
+
+    # Get the real argv
     if argv is None:
         argv = sys.argv[1:]
+
+    # Make a copy for manipulation
+    original_argv = argv.copy()
 
     if "--version" in argv or "-v" in argv:
         print(f"claude-monitor {__version__}")
         return 0
+
+    # Handle help to show tray option
+    if "--help" in argv or "-h" in argv:
+        # Let pydantic handle the main help, but add tray option info
+        import argparse
+        parser = argparse.ArgumentParser(
+            prog="claude-monitor",
+            description="claude-monitor - Real-time token usage monitoring for Claude AI",
+            add_help=False
+        )
+        parser.add_argument("--tray", action="store_true",
+                          help="Run in system tray mode (Windows taskbar notification area)")
+
+        # Get the original help from pydantic
+        try:
+            Settings.load_with_last_used(["--help"])
+        except SystemExit:
+            # Add tray option to the help output
+            print("\nAdditional options:")
+            print("  --tray                Run in system tray mode (Windows taskbar notification area)")
+            sys.exit(0)
+
+    # Check for tray mode directly in argv before pydantic processing
+    tray_mode = "--tray" in original_argv
+    if tray_mode:
+        # Remove --tray from argv so pydantic doesn't complain
+        argv = [arg for arg in argv if arg != "--tray"]
 
     try:
         settings = Settings.load_with_last_used(argv)
@@ -93,7 +126,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         args = settings.to_namespace()
 
-        _run_monitoring(args)
+        # Check for tray mode
+        if tray_mode:
+            _run_tray_mode(args)
+        else:
+            _run_monitoring(args)
 
         return 0
 
@@ -428,6 +465,82 @@ def _run_table_view(
     except Exception as e:
         logger.error(f"Error in table view: {e}", exc_info=True)
         print_themed(f"Error displaying {view_mode} view: {e}", style="error")
+
+
+def _run_tray_mode(args: argparse.Namespace) -> None:
+    """Run system tray mode.
+
+    Args:
+        args: Command-line arguments namespace
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Check if tray dependencies are available
+        from claude_monitor.ui.system_tray import SystemTrayManager, check_tray_support
+        from claude_monitor.utils.instance_lock import SingleInstanceLock
+    except ImportError:
+        print_themed(
+            "System tray dependencies not installed.\n"
+            "Install with: pip install 'claude-monitor[tray]'",
+            style="error"
+        )
+        return
+
+    if not check_tray_support():
+        print_themed(
+            "System tray is not supported on this platform or dependencies are missing.\n"
+            "Install with: pip install 'claude-monitor[tray]'",
+            style="error"
+        )
+        return
+
+    # Check for single instance
+    instance_lock = SingleInstanceLock("claude_monitor_tray")
+    if not instance_lock.acquire():
+        print_themed(
+            "Another instance of Claude Monitor is already running in tray mode.\n"
+            "Only one instance can run at a time.",
+            style="warning"
+        )
+        logger.warning("Tray mode already running, exiting")
+        return
+
+    try:
+        # Discover Claude data paths
+        data_paths: List[Path] = discover_claude_data_paths()
+        if not data_paths:
+            print_themed("No Claude data directory found", style="error")
+            return
+
+        data_path: Path = data_paths[0]
+        logger.info(f"Using data path: {data_path}")
+
+        # Create orchestrator
+        orchestrator = MonitoringOrchestrator(
+            update_interval=getattr(args, "refresh_rate", 10),
+            data_path=str(data_path),
+        )
+        orchestrator.set_args(args)
+
+        # Create and run tray manager
+        print_themed("Starting system tray mode...", style="info")
+        logger.info("Starting system tray mode")
+
+        tray_manager = SystemTrayManager(orchestrator)
+        tray_manager.run()  # Blocking call
+
+    except KeyboardInterrupt:
+        logger.info("System tray mode interrupted by user")
+        print_themed("\nSystem tray stopped by user", style="info")
+
+    except Exception as e:
+        logger.error(f"Error in tray mode: {e}", exc_info=True)
+        print_themed(f"Error running system tray: {e}", style="error")
+        raise
+    finally:
+        # Release lock when exiting
+        instance_lock.release()
 
 
 if __name__ == "__main__":

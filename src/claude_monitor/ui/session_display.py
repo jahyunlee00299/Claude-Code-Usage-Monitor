@@ -143,9 +143,10 @@ class SessionDisplayComponent:
         per_model_stats: dict[str, Any],
         sent_messages: int,
         entries: list[dict],
-        predicted_end_str: str,
-        reset_time_str: str,
-        current_time_str: str,
+        start_time_str: Optional[str] = None,  # Added start time parameter
+        predicted_end_str: str = "",
+        reset_time_str: str = "",
+        current_time_str: str = "",
         show_switch_notification: bool = False,
         show_exceed_notification: bool = False,
         show_tokens_will_run_out: bool = False,
@@ -309,7 +310,11 @@ class SessionDisplayComponent:
             screen_buffer.append("")
 
         screen_buffer.append("")
-        screen_buffer.append("🔮 [value]Predictions:[/]")
+        screen_buffer.append("🔮 [value]Session Times:[/]")
+        if start_time_str:
+            screen_buffer.append(
+                f"   [info]Session started at:[/]  [dim]{start_time_str}[/]"
+            )
         screen_buffer.append(
             f"   [info]Tokens will run out:[/] [warning]{predicted_end_str}[/]"
         )

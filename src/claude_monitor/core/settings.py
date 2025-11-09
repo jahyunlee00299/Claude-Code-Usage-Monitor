@@ -97,6 +97,7 @@ class Settings(BaseSettings):
         cli_prog_name="claude-monitor",
         cli_kebab_case=True,
         cli_implicit_flags=True,
+        cli_hide_none_type=False,
     )
 
     plan: Literal["pro", "max5", "max20", "custom"] = Field(
@@ -169,6 +170,11 @@ class Settings(BaseSettings):
     version: bool = Field(default=False, description="Show version information")
 
     clear: bool = Field(default=False, description="Clear saved configuration")
+
+    tray: Optional[bool] = Field(
+        default=False,
+        description="Run in system tray mode (Windows taskbar notification area)",
+    )
 
     @field_validator("plan", mode="before")
     @classmethod
@@ -267,6 +273,11 @@ class Settings(BaseSettings):
 
             sys.exit(0)
 
+        # Handle tray option which pydantic doesn't recognize
+        if argv and "--tray" in argv:
+            # Remove --tray from argv so pydantic doesn't complain
+            argv = [arg for arg in argv if arg != "--tray"]
+
         clear_config = argv and "--clear" in argv
 
         if clear_config:
@@ -350,5 +361,6 @@ class Settings(BaseSettings):
         args.log_level = self.log_level
         args.log_file = str(self.log_file) if self.log_file else None
         args.version = self.version
+        args.tray = self.tray
 
         return args

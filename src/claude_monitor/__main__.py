@@ -12,7 +12,8 @@ from .cli.main import main
 
 def _main() -> NoReturn:
     """Entry point that properly handles exit codes and never returns."""
-    exit_code = main()
+    # Pass sys.argv[1:] to main so it can handle --tray before pydantic
+    exit_code = main(sys.argv[1:])
     sys.exit(exit_code)
 
 
