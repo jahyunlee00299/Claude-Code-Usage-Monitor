@@ -327,39 +327,12 @@ class SystemTrayManager:
             # 토큰 소진 예상 시간
             tokens_runout = predicted_end_str if predicted_end_str else "N/A"
 
-            # Build tooltip with emphasis on depletion time
-            if tokens_runout and tokens_runout != "N/A":
-                if tokens_runout == "Exceeded":
-                    # Already exceeded the limit - show when it will be completely depleted
-                    # Get the actual predicted time from monitoring data if available
-                    predicted_depletion = monitoring_data.get("predicted_depletion_time_str", "")
-                    if predicted_depletion:
-                        tooltip = (
-                            f"⚠️ 한도 초과 | "
-                            f"💰 초과: {abs(remaining_tokens):,} | "
-                            f"⏰ 소진: {predicted_depletion} | "
-                            f"🔄 리셋: {reset_time}"
-                        )
-                    else:
-                        tooltip = (
-                            f"⚠️ 한도 초과! | "
-                            f"💰 초과: {abs(remaining_tokens):,} 토큰 | "
-                            f"🔄 리셋: {reset_time}"
-                        )
-                else:
-                    # Normal case - show predicted depletion time
-                    tooltip = (
-                        f"💰 남은 예산: {remaining_pct:.0f}% | "
-                        f"⏰ 토큰 소진: {tokens_runout} | "
-                        f"🔄 리셋: {reset_time}"
-                    )
-            else:
-                # No prediction available
-                tooltip = (
-                    f"💰 남은 예산: {remaining_pct:.0f}% | "
-                    f"세션: {session_start} | "
-                    f"🔄 리셋: {reset_time}"
-                )
+            # Build tooltip - always show "Tokens will run out" like terminal
+            tooltip = (
+                f"Tokens: {tokens_used:,}/{token_limit:,} ({remaining_pct:.0f}%) | "
+                f"Tokens will run out: {tokens_runout} | "
+                f"Reset: {reset_time}"
+            )
 
             if self.icon:
                 self.icon.title = tooltip
