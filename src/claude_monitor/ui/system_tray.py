@@ -51,6 +51,11 @@ class SystemTrayManager:
         self._notification_cooldown = 300  # 5 minutes between notifications
         self.is_monitoring = False  # Track monitoring status
 
+        # Double-click detection
+        self._last_click_time = 0
+        self._click_timer = None
+        self._double_click_threshold = 0.5  # 500ms for double-click detection
+
     def create_menu(self):
         """Create system tray context menu.
 
@@ -183,22 +188,69 @@ class SystemTrayManager:
             self.icon.stop()
 
     def on_double_click(self, icon=None, item=None):
-        """Handle double-click on tray icon.
+        """Handle clicks on tray icon with double-click detection.
 
-        Opens a new CMD window and runs claude-monitor.
+        Only launches monitor on actual double-click (two clicks within 500ms).
+        Single clicks are ignored.
 
         Args:
             icon: pystray icon instance (unused)
             item: menu item instance (unused)
         """
-        try:
-            logger.info("=== TRAY ICON CLICKED - Launching monitor in CMD ===")
-            print("DEBUG: Tray icon clicked!")  # Debug output
+        import time
 
+        current_time = time.time()
+        time_since_last_click = current_time - self._last_click_time
+
+        logger.debug(f"Click detected. Time since last click: {time_since_last_click:.3f}s")
+
+        # Check if this is a double-click (within threshold)
+        if time_since_last_click < self._double_click_threshold:
+            # This is a double-click!
+            logger.info("=== DOUBLE-CLICK DETECTED - Launching monitor in CMD ===")
+
+            # Cancel any pending single-click timer
+            if self._click_timer:
+                self._click_timer.cancel()
+                self._click_timer = None
+
+            # Reset click time to prevent triple-click triggering another launch
+            self._last_click_time = 0
+
+            # Launch the monitor
+            self._launch_monitor()
+        else:
+            # This is a single click - wait to see if another click follows
+            logger.debug("Single click detected, waiting for potential double-click...")
+
+            # Cancel any previous timer
+            if self._click_timer:
+                self._click_timer.cancel()
+
+            # Update last click time
+            self._last_click_time = current_time
+
+            # Set timer to reset click state after threshold
+            # (This prevents treating two widely-spaced single clicks as a double-click)
+            self._click_timer = threading.Timer(
+                self._double_click_threshold,
+                self._reset_click_state
+            )
+            self._click_timer.start()
+
+    def _reset_click_state(self):
+        """Reset click state after double-click threshold expires."""
+        logger.debug("Click state reset - single click ignored")
+        self._last_click_time = 0
+        self._click_timer = None
+
+    def _launch_monitor(self):
+        """Launch claude-monitor in a new CMD window."""
+        try:
             # Launch claude-monitor in a new CMD window
             # /k keeps the window open after command execution
             if sys.platform == "win32":
-                cmd = ['cmd', '/k', 'claude-monitor']
+                cmd = ['cmd', '/k', 'python', '-m', 'claude_monitor']
                 logger.info(f"Executing command: {' '.join(cmd)}")
 
                 process = subprocess.Popen(
@@ -208,7 +260,7 @@ class SystemTrayManager:
                 logger.info(f"Monitor launched in new CMD window (PID: {process.pid})")
             else:
                 # For non-Windows platforms, use default terminal
-                subprocess.Popen(['claude-monitor'])
+                subprocess.Popen(['python', '-m', 'claude_monitor'])
                 logger.info("Monitor launched in default terminal")
 
             # Show confirmation notification
