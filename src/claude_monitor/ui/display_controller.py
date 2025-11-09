@@ -154,6 +154,7 @@ class DisplayController:
         current_time: datetime,
         predicted_end_time: datetime,
         reset_time: datetime,
+        start_time: Optional[datetime] = None,
     ) -> Dict[str, str]:
         """Format times for display."""
         tz_handler = TimezoneHandler(default_tz="Europe/Warsaw")
@@ -178,6 +179,14 @@ class DisplayController:
             reset_time_local, time_format, include_seconds=False
         )
 
+        # Format start time if available
+        start_time_str = None
+        if start_time:
+            start_time_local = tz_handler.convert_to_timezone(start_time, timezone_to_use)
+            start_time_str = format_display_time(
+                start_time_local, time_format, include_seconds=False
+            )
+
         # Current time display
         try:
             display_tz = pytz.timezone(args.timezone)
@@ -193,6 +202,7 @@ class DisplayController:
             "predicted_end_str": predicted_end_str,
             "reset_time_str": reset_time_str,
             "current_time_str": current_time_str,
+            "start_time_str": start_time_str,
         }
 
     def create_data_display(
@@ -364,7 +374,8 @@ class DisplayController:
 
         # Format display times
         display_times = self._format_display_times(
-            args, current_time, cost_data["predicted_end_time"], time_data["reset_time"]
+            args, current_time, cost_data["predicted_end_time"], time_data["reset_time"],
+            time_data.get("start_time")
         )
 
         # Build result dictionary
@@ -383,6 +394,7 @@ class DisplayController:
             "model_distribution": model_distribution,
             "sent_messages": session_data["sent_messages"],
             "entries": session_data["entries"],
+            "start_time_str": display_times.get("start_time_str"),  # Formatted session start time
             "predicted_end_str": display_times["predicted_end_str"],
             "reset_time_str": display_times["reset_time_str"],
             "current_time_str": display_times["current_time_str"],
