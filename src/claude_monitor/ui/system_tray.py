@@ -121,14 +121,17 @@ class SystemTrayManager:
                         reset_time = monitoring_data.get("reset_time_str", "N/A")
                         predicted_end = monitoring_data.get("predicted_end_str", "N/A")
 
+                        # Calculate remaining percentage
+                        remaining_pct = 0
+                        if token_limit > 0:
+                            remaining_pct = ((token_limit - tokens) / token_limit) * 100
+
                         message = (
-                            f"Tokens: {tokens:,} / {token_limit:,}\n"
-                            f"Cost: ${cost:.2f}\n"
-                            f"Messages: {messages}\n"
-                            f"─────────────────\n"
-                            f"세션 시작: {start_time}\n"
+                            f"토큰: {tokens:,}/{token_limit:,} ({remaining_pct:.0f}%)\n"
+                            f"비용: ${cost:.2f} | 메시지: {messages}\n"
+                            f"시작: {start_time}\n"
                             f"리셋: {reset_time}\n"
-                            f"소진 예정: {predicted_end}"
+                            f"소진: {predicted_end}"
                         )
                     else:
                         message = "No active session"
