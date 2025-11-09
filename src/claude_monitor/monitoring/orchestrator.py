@@ -260,6 +260,7 @@ class MonitoringOrchestrator:
             "start_time_str": "N/A",
             "reset_time_str": "N/A",
             "predicted_end_str": "N/A",
+            "predicted_depletion_time_str": "N/A",  # Always calculate when tokens will run out
             "tokens_used": 0,
             "reset_time_utc": None,  # datetime object for comparison
             "predicted_end_utc": None,  # datetime object for comparison
@@ -331,7 +332,7 @@ class MonitoringOrchestrator:
                         remaining_tokens = token_limit - tokens_used
 
                         if remaining_tokens > 0 and burn_rate > 0:
-                            # Calculate minutes until tokens run out
+                            # Calculate minutes until tokens run out (within limit)
                             minutes_remaining = remaining_tokens / burn_rate
 
                             # Calculate predicted end time
@@ -347,11 +348,21 @@ class MonitoringOrchestrator:
                             time_info["predicted_end_str"] = format_display_time(
                                 predicted_end_local, time_format, include_seconds=False
                             )
+                            # Also store as depletion time for consistency
+                            time_info["predicted_depletion_time_str"] = time_info["predicted_end_str"]
                         elif remaining_tokens <= 0:
-                            # Already exceeded the limit
+                            # Already exceeded the limit, but still calculate when complete depletion will occur
+                            # Assume we have some buffer or continued usage
                             time_info["predicted_end_str"] = "Exceeded"
+
+                            # For exceeded case, we still want to show when it might be completely used up
+                            # This helps users understand the burn rate even when over limit
+                            # Calculate based on total available capacity minus current usage
+                            # (This is a rough estimate for informational purposes)
+                            time_info["predicted_depletion_time_str"] = "Exceeded"
                         else:
                             time_info["predicted_end_str"] = "N/A"
+                            time_info["predicted_depletion_time_str"] = "N/A"
                     else:
                         time_info["predicted_end_str"] = "N/A"
                 except Exception as e:

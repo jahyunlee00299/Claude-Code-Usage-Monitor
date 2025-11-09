@@ -330,12 +330,22 @@ class SystemTrayManager:
             # Build tooltip with emphasis on depletion time
             if tokens_runout and tokens_runout != "N/A":
                 if tokens_runout == "Exceeded":
-                    # Already exceeded the limit
-                    tooltip = (
-                        f"⚠️ 한도 초과! | "
-                        f"💰 초과: {abs(remaining_tokens):,} 토큰 | "
-                        f"🔄 리셋: {reset_time}"
-                    )
+                    # Already exceeded the limit - show when it will be completely depleted
+                    # Get the actual predicted time from monitoring data if available
+                    predicted_depletion = monitoring_data.get("predicted_depletion_time_str", "")
+                    if predicted_depletion:
+                        tooltip = (
+                            f"⚠️ 한도 초과 | "
+                            f"💰 초과: {abs(remaining_tokens):,} | "
+                            f"⏰ 소진: {predicted_depletion} | "
+                            f"🔄 리셋: {reset_time}"
+                        )
+                    else:
+                        tooltip = (
+                            f"⚠️ 한도 초과! | "
+                            f"💰 초과: {abs(remaining_tokens):,} 토큰 | "
+                            f"🔄 리셋: {reset_time}"
+                        )
                 else:
                     # Normal case - show predicted depletion time
                     tooltip = (
