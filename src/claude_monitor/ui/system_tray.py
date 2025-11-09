@@ -96,27 +96,44 @@ class SystemTrayManager:
         """
         try:
             # Get latest monitoring data
-            data = self.orchestrator.get_current_data()
+            monitoring_data = self.orchestrator.get_current_data()
 
-            if data and "blocks" in data:
-                blocks = data.get("blocks", [])
-                active_blocks = [b for b in blocks if b.get("isActive")]
-
-                if active_blocks:
-                    block = active_blocks[0]
-                    tokens = block.get("totalTokens", 0)
-                    cost = block.get("totalCost", 0.0)
-                    messages = block.get("messageCount", 0)
-
-                    message = (
-                        f"Tokens: {tokens:,}\n"
-                        f"Cost: ${cost:.2f}\n"
-                        f"Messages: {messages}"
-                    )
-                else:
-                    message = "No active session"
-            else:
+            if not monitoring_data:
                 message = "No data available"
+            else:
+                data = monitoring_data.get("data", {})
+
+                if data and "blocks" in data:
+                    blocks = data.get("blocks", [])
+                    active_blocks = [b for b in blocks if b.get("isActive")]
+
+                    if active_blocks:
+                        block = active_blocks[0]
+                        tokens = block.get("totalTokens", 0)
+                        cost = block.get("totalCost", 0.0)
+                        messages = block.get("messageCount", 0)
+
+                        # Get token limit
+                        token_limit = monitoring_data.get("token_limit", 0)
+
+                        # Get time information
+                        start_time = monitoring_data.get("start_time_str", "N/A")
+                        reset_time = monitoring_data.get("reset_time_str", "N/A")
+                        predicted_end = monitoring_data.get("predicted_end_str", "N/A")
+
+                        message = (
+                            f"Tokens: {tokens:,} / {token_limit:,}\n"
+                            f"Cost: ${cost:.2f}\n"
+                            f"Messages: {messages}\n"
+                            f"─────────────────\n"
+                            f"세션 시작: {start_time}\n"
+                            f"리셋: {reset_time}\n"
+                            f"소진 예정: {predicted_end}"
+                        )
+                    else:
+                        message = "No active session"
+                else:
+                    message = "No data available"
 
             # Show Windows notification
             if self.icon:
