@@ -327,12 +327,19 @@ class SystemTrayManager:
             # 토큰 소진 예상 시간
             tokens_runout = predicted_end_str if predicted_end_str else "N/A"
 
-            tooltip = (
-                f"세션 시작: {session_start} | "
-                f"리셋: {reset_time} | "
-                f"토큰 소진: {tokens_runout} | "
-                f"남은 예산: {remaining_pct:.0f}%"
-            )
+            # Build tooltip with emphasis on depletion time
+            if tokens_runout != "N/A" and tokens_runout != "Exceeded":
+                tooltip = (
+                    f"💰 남은 예산: {remaining_pct:.0f}% | "
+                    f"⏰ 토큰 소진: {tokens_runout} | "
+                    f"🔄 리셋: {reset_time}"
+                )
+            else:
+                tooltip = (
+                    f"💰 남은 예산: {remaining_pct:.0f}% | "
+                    f"세션: {session_start} | "
+                    f"🔄 리셋: {reset_time}"
+                )
 
             if self.icon:
                 self.icon.title = tooltip
@@ -418,24 +425,32 @@ class SystemTrayManager:
         # Send warning at 80% and 90% usage
         if usage_pct >= 90:
             if self.icon:
-                self.icon.notify(
+                # Build message with depletion time if available
+                message = (
                     f"⚠️ Token usage: {usage_pct:.1f}%\n"
                     f"Tokens: {tokens:,}/{token_limit:,}\n"
                     f"Cost: ${cost:.2f}\n"
-                    f"Approaching limit!",
-                    "⚠️ Claude Monitor Warning",
                 )
+                if predicted_end_str and predicted_end_str != "N/A" and predicted_end_str != "Exceeded":
+                    message += f"소진 예정: {predicted_end_str}\n"
+                message += "Approaching limit!"
+
+                self.icon.notify(message, "⚠️ Claude Monitor Warning")
                 self._last_notification_time = current_time
                 logger.warning(f"High usage warning sent: {usage_pct:.1f}%")
 
         elif usage_pct >= 80:
             if self.icon:
-                self.icon.notify(
+                # Build message with depletion time if available
+                message = (
                     f"Token usage: {usage_pct:.1f}%\n"
                     f"Tokens: {tokens:,}/{token_limit:,}\n"
-                    f"Cost: ${cost:.2f}",
-                    "Claude Monitor",
+                    f"Cost: ${cost:.2f}"
                 )
+                if predicted_end_str and predicted_end_str != "N/A" and predicted_end_str != "Exceeded":
+                    message += f"\n소진 예정: {predicted_end_str}"
+
+                self.icon.notify(message, "Claude Monitor")
                 self._last_notification_time = current_time
                 logger.info(f"Usage notification sent: {usage_pct:.1f}%")
 
