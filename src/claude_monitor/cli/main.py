@@ -478,6 +478,7 @@ def _run_tray_mode(args: argparse.Namespace) -> None:
     try:
         # Check if tray dependencies are available
         from claude_monitor.ui.system_tray import SystemTrayManager, check_tray_support
+        from claude_monitor.utils.instance_lock import SingleInstanceLock
     except ImportError:
         print_themed(
             "System tray dependencies not installed.\n"
@@ -492,6 +493,17 @@ def _run_tray_mode(args: argparse.Namespace) -> None:
             "Install with: pip install 'claude-monitor[tray]'",
             style="error"
         )
+        return
+
+    # Check for single instance
+    instance_lock = SingleInstanceLock("claude_monitor_tray")
+    if not instance_lock.acquire():
+        print_themed(
+            "Another instance of Claude Monitor is already running in tray mode.\n"
+            "Only one instance can run at a time.",
+            style="warning"
+        )
+        logger.warning("Tray mode already running, exiting")
         return
 
     try:
@@ -526,6 +538,9 @@ def _run_tray_mode(args: argparse.Namespace) -> None:
         logger.error(f"Error in tray mode: {e}", exc_info=True)
         print_themed(f"Error running system tray: {e}", style="error")
         raise
+    finally:
+        # Release lock when exiting
+        instance_lock.release()
 
 
 if __name__ == "__main__":

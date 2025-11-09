@@ -192,7 +192,7 @@ class SystemTrayManager:
 
             # 남은 토큰 및 퍼센트 계산
             remaining_tokens = max(0, token_limit - tokens_used) if token_limit > 0 else 0
-            remaining_pct = (remaining_tokens / token_limit * 100) if token_limit > 0 else 0
+            remaining_pct = (remaining_tokens / token_limit * 100) if token_limit > 0 else 100
 
             # 시간 정보 가져오기 (이미 포맷팅된 문자열)
             start_time_str = monitoring_data.get("start_time_str", "")
@@ -218,8 +218,17 @@ class SystemTrayManager:
             if self.icon:
                 self.icon.title = tooltip
 
+            # Get cost from data if available
+            cost = 0.0
+            data = monitoring_data.get("data", {})
+            if data and "blocks" in data:
+                blocks = data.get("blocks", [])
+                active_blocks = [b for b in blocks if b.get("isActive")]
+                if active_blocks:
+                    cost = active_blocks[0].get("totalCost", 0.0)
+
             # Check for high usage and send warning
-            self._check_usage_threshold(tokens_used, token_limit, 0)
+            self._check_usage_threshold(tokens_used, token_limit, cost)
 
         except Exception as e:
             logger.error(f"Error updating tooltip: {e}", exc_info=True)
